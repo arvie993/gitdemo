@@ -11,54 +11,30 @@ on:
 
 jobs:
   translate:
+    permissions:
+      contents: write          # <— let this job push commits
     runs-on: ubuntu-latest
-
     steps:
-      - name: 📥  Check out repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          persist-credentials: false   # we'll push with our PAT instead
+          persist-credentials: false   # keep checkout read‑only
 
-      - name: 🐍  Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      …  # install python & translate here
 
-      - name: 📦  Install translator library
-        run: |
-          python -m pip install --upgrade pip
-          pip install googletrans==3.1.0a0  # lightweight Google-Translate wrapper
-
-      - name: 🌐  Translate README.md → spanish-readme.md
-        run: |
-          python - <<'PY'
-          import pathlib
-          from googletrans import Translator  # :contentReference[oaicite:0]{index=0}
-
-          src = pathlib.Path("README.md")
-          if not src.exists():
-              raise SystemExit("README.md not found!")
-
-          text = src.read_text(encoding="utf-8")
-          translated = Translator().translate(text, dest="es").text
-
-          pathlib.Path("spanish-readme.md").write_text(translated, encoding="utf-8")
-          PY
-
-      - name: 📝  Commit & push (only if something changed)
+      - name: Commit & push
         env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name  "github-actions[bot]"
-          git add spanish-readme.md || true
-          # Skip if file is unchanged
+          git add spanish-readme.md
           if git diff --cached --quiet; then
-            echo "No changes detected; skipping commit."
+            echo "No changes detected."
             exit 0
           fi
-          git commit -m "chore: auto-update Spanish README"
+          git commit -m "chore: auto‑update Spanish README"
           git push \
-            https://x-access-token:${GH_PAT}@github.com/${{ github.repository }} \
-            HEAD:${{ github.ref }}
+            https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} \
+            HEAD:${{ github.ref_name }}
+
 
