@@ -1,0 +1,70 @@
+# .github/workflows/translate-readme.yml
+name: Translate README → Spanish
+
+on:
+  # Re‑run whenever README.md changes
+  push:
+    paths:
+      - "README.md"
+  # Allow manual runs from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  translate:
+    # Let this job push commits back to the repo
+    permissions:
+      contents: write        # ← critical for GITHUB_TOKEN
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣  Check out the repo (read‑only)
+      - name: 📥  Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # 2️⃣  Install Python & the translator lib
+      - name: 🐍  Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 📦  Install googletrans
+        run: |
+          python -m pip install --upgrade pip
+          pip install googletrans==3.1.0a0
+
+      # 3️⃣  Translate README.md → spanish-readme.md
+      - name: 🌐  Translate README
+        run: |
+          python - <<'PY'
+          import pathlib, sys
+          from googletrans import Translator
+
+          src = pathlib.Path("README.md")
+          if not src.is_file():
+              sys.exit("README.md not found – aborting")
+          dst = pathlib.Path("spanish-readme.md")
+          dst.write_text(
+              Translator().translate(src.read_text(), dest="es").text,
+              encoding="utf-8"
+          )
+          PY
+
+      # 4️⃣  Commit & push only if the file changed
+      - name: 📝  Commit & push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # auto‑generated token
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name  "github-actions[bot]"
+          git add spanish-readme.md
+          if git diff --cached --quiet; then
+            echo "No changes detected – skipping commit."
+            exit 0
+          fi
+          git commit -m "chore: auto-update Spanish README"
+          # Push back to the same branch that triggered the run
+          git push \
+            https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} \
+            HEAD:${{ github.ref_name }}
